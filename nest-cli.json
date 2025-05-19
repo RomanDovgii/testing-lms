@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/testing-lms/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/testing-lms/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/testing-lms",
+  "projects": {
+    "analytic": {
+      "type": "application",
+      "root": "apps/analytic",
+      "entryFile": "main",
+      "sourceRoot": "apps/analytic/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/analytic/tsconfig.app.json"
+      }
+    },
+    "authorization": {
+      "type": "application",
+      "root": "apps/authorization",
+      "entryFile": "main",
+      "sourceRoot": "apps/authorization/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/authorization/tsconfig.app.json"
+      }
+    },
+    "gateway": {
+      "type": "application",
+      "root": "apps/gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/gateway/tsconfig.app.json"
+      }
+    },
+    "testing": {
+      "type": "application",
+      "root": "apps/testing",
+      "entryFile": "main",
+      "sourceRoot": "apps/testing/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/testing/tsconfig.app.json"
+      }
+    },
+    "testing-lms": {
+      "type": "application",
+      "root": "apps/testing-lms",
+      "entryFile": "main",
+      "sourceRoot": "apps/testing-lms/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/testing-lms/tsconfig.app.json"
+      }
+    },
+    "user": {
+      "type": "application",
+      "root": "apps/user",
+      "entryFile": "main",
+      "sourceRoot": "apps/user/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/user/tsconfig.app.json"
+      }
+    }
+  }
+}
