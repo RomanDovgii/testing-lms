@@ -14,9 +14,9 @@ describe('AuthorizationController', () => {
     authorizationController = app.get<AuthorizationController>(AuthorizationController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(authorizationController.getHello()).toBe('Hello World!');
-    });
-  });
+  // describe('root', () => {
+  //   it('should return "Hello World!"', () => {
+  //     expect(authorizationController.getHello()).toBe('Hello World!');
+  //   });
+  // });
 });

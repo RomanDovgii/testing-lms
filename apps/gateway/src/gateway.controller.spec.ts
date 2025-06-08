@@ -13,10 +13,4 @@ describe('GatewayController', () => {
 
     gatewayController = app.get<GatewayController>(GatewayController);
   });
-
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(gatewayController.getHello()).toBe('Hello World!');
-    });
-  });
 });

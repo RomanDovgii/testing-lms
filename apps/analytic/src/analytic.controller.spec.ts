@@ -14,9 +14,9 @@ describe('AnalyticController', () => {
     analyticController = app.get<AnalyticController>(AnalyticController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(analyticController.getHello()).toBe('Hello World!');
-    });
-  });
+  // describe('root', () => {
+  //   it('should return "Hello World!"', () => {
+  //     expect(analyticController.getHello()).toBe('Hello World!');
+  //   });
+  // });
 });

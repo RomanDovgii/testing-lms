@@ -1,12 +1,192 @@
-import { Controller, Get } from '@nestjs/common';
-import { GatewayService } from './gateway.service';
+import { Body, Controller, Get, Inject, Param, ParseIntPipe, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { TaskDto } from './dto/task.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { firstValueFrom } from 'rxjs';
 
 @Controller()
 export class GatewayController {
-  constructor(private readonly gatewayService: GatewayService) {}
+  constructor(
+    @Inject('AUTHORIZATION_SERVICE') private readonly authorizationClient: ClientProxy,
+    @Inject('USER_SERVICE') private readonly userClient: ClientProxy,
+    @Inject('ANALYTIC_SERVICE') private readonly analyticClient: ClientProxy,
+    @Inject('TESTING_SERVICE') private readonly testingClient: ClientProxy,
+  ) { }
+
+  // tests for microservices
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  getProfile(@Req() request) {
+    const user = request.user;
+  }
 
   @Get()
-  getHello(): string {
-    return this.gatewayService.getHello();
+  async runGatewayTest() {
+    return { message: 'Gateway controller is running' };
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('authorization/test')
+  async runAuthorizationTest() {
+    return this.authorizationClient.send({ cmd: 'test' }, {});
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('user/test')
+  @Roles('студент')
+  async runUserTest() {
+    return this.userClient.send({ cmd: 'test' }, {});
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('user/get-user')
+  async getUserById(@Req() request) {
+    const userId = request.user.sub;
+    return this.userClient.send({ cmd: 'get user by Id' }, userId);
+  }
+
+  @Get('analytic/test')
+  async runAnalyticTest() {
+    return this.analyticClient.send({ cmd: 'test' }, {});
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('testing/test')
+  @Roles('администратор')
+  async runTestingTest() {
+    return this.testingClient.send({ cmd: 'test' }, {});
+  }
+
+  // Authorization
+
+  @Post('authorization/register')
+  async registerUser(@Body() dto: RegisterDto) {
+    return this.authorizationClient.send({ cmd: 'register' }, dto);
+  }
+
+  @Post('authorization/login')
+  async loginUser(@Body() dto: LoginDto) {
+    return this.authorizationClient.send({ cmd: 'login' }, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('testing/add-task')
+  @Roles('преподаватель')
+  async addTask(
+    @Body() dto: TaskDto,
+  ) {
+    return this.testingClient.send({ cmd: 'add task' }, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('testing/validate-html')
+  @Roles('преподаватель')
+  async validateHtml(@Body() body: { githubLogin: string; taskId: number }) {
+    return this.testingClient.send(
+      { cmd: 'validate-html' },
+      body,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('testing/get-anomalies')
+  @Roles('преподаватель')
+  async getAllAnomalies() {
+    return this.testingClient.send(
+      {
+        cmd: 'get anomalies'
+      },
+      {}
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('testing/get-copies')
+  @Roles('преподаватель')
+  async getAllCopies() {
+    return this.testingClient.send(
+      {
+        cmd: 'get copies'
+      },
+      {}
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('user/upload-test')
+  @Roles('преподаватель')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadTest(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    const fileBase64 = file.buffer.toString('base64');
+
+    if (typeof body.taskIds === 'string') {
+      try {
+        body.taskIds = JSON.parse(body.taskIds);
+      } catch {
+        body.taskIds = [];
+      }
+    }
+
+    const payload = {
+      userId: body.userId,
+      title: body.title,
+      description: body.description,
+      taskIds: body.taskIds,
+      originalFilename: file.originalname,
+      fileBuffer: fileBase64,
+    };
+
+    return this.userClient.send({ cmd: 'upload test' }, payload).toPromise();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get(':id/tasks')
+  @Roles('преподаватель')
+  async getUserTasks(@Param('id') id: string) {
+    const ownerId = parseInt(id);
+    return firstValueFrom(this.userClient.send('get all tasks by user', ownerId));
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('user/:userId/tests')
+  @Roles('преподаватель')
+  async getTestsByUserId(@Param('userId') userId: string) {
+    return await firstValueFrom(
+      this.userClient.send({ cmd: 'get all tests by user' }, { userId: Number(userId) }),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('user/participants')
+  @Roles('преподаватель')
+  async getAllUsersWithAvailableRepos() {
+    return await firstValueFrom(
+      this.userClient.send({ cmd: 'get all users with available repos' }, {}),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('testing/run/:id')
+  @Roles('преподаватель', "студент")
+  async runTest(@Param('id', ParseIntPipe) testId: number) {
+    return this.testingClient.send({ cmd: 'run test' }, { testId });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('/user/add-check/:id')
+  @Roles('преподаватель')
+  async addTaskCheck(@Param('id') id: string) {
+    const taskId = parseInt(id);
+    return this.userClient.send({cmd: 'add task to check'}, taskId);
   }
 }
