@@ -87,7 +87,7 @@ export class GatewayController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post('testing/validate-html')
-  @Roles('преподаватель')
+  @Roles('преподаватель', 'студент')
   async validateHtml(@Body() body: { githubLogin: string; taskId: number }) {
     return this.testingClient.send(
       { cmd: 'validate-html' },
@@ -97,7 +97,7 @@ export class GatewayController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('testing/get-anomalies')
-  @Roles('преподаватель')
+  @Roles('преподаватель', 'студент')
   async getAllAnomalies() {
     return this.testingClient.send(
       {
@@ -109,7 +109,7 @@ export class GatewayController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('testing/get-copies')
-  @Roles('преподаватель')
+  @Roles('преподаватель', 'студент')
   async getAllCopies() {
     return this.testingClient.send(
       {
@@ -187,23 +187,42 @@ export class GatewayController {
   @Roles('преподаватель')
   async addTaskCheck(@Param('id') id: string) {
     const taskId = parseInt(id);
-    return this.userClient.send({cmd: 'add task to check'}, taskId);
+    return this.userClient.send({ cmd: 'add task to check' }, taskId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Get('/user/get-tasks/:id')
+  @Get('/user/get-tasks/:githubLogin')
   @Roles('студент')
-  async getStudentTasks(@Param('id') id: string) {
-    const taskId = parseInt(id);
-    return this.userClient.send({cmd: 'get student tasks'}, taskId);
+  async getStudentTasks(@Param('githubLogin') githubLogin: string) {
+    return this.userClient.send({ cmd: 'get student tasks' }, githubLogin);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('testing/student-run/:id/:githubLogin')
   @Roles('студент')
-  async runStudentTest(@Param('id', ParseIntPipe) testId: number, @Param('githubLogin') githubLogin: string) {
-    return this.testingClient.send({ cmd: 'run test for student' }, { testId, githubLogin });
+  async runStudentTest(@Param('id', ParseIntPipe) taskId: number, @Param('githubLogin') githubLogin: string) {
+    return this.testingClient.send({ cmd: 'run test for student' }, { taskId, githubLogin });
   }
 
-  
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('/user/unapproved')
+  @Roles('администратор')
+  async getUnapprovedProfessors() {
+    return this.userClient.send({ cmd: 'get unapproved' }, {});
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('/user/approve/:id')
+  @Roles('администратор')
+  async approveProfessor(@Param('id') id: string) {
+    const taskId = parseInt(id);
+    return this.userClient.send({ cmd: 'approve professor' }, taskId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('/user/update')
+  @Roles('администратор', 'преподаватель', 'студент')
+  async updateProfile(@Body() updateUserDto: any) {
+    return this.userClient.send({ cmd: 'update user profile' }, updateUserDto);
+  }
 }

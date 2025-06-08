@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AuthorizationModule } from './authorization.module';
 import { Transport } from '@nestjs/microservices';
+import { DataSource } from 'typeorm';
+import { seedAdmin } from './seeder/admin.seed';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice(AuthorizationModule, {
@@ -11,5 +13,8 @@ async function bootstrap() {
     },
   });
   await app.listen();
+
+  const dataSource = app.get(DataSource);
+  await seedAdmin(dataSource);
 }
 bootstrap();

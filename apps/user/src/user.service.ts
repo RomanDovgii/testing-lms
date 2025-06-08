@@ -201,5 +201,64 @@ export class UserService {
 
     return message;
   }
+
+  async getTasksByGithubLogin(githubLogin: string): Promise<Tasks[]> {
+
+    const participants = await this.participantsRepo.find({ where: { githubLogin } });
+    if (participants.length === 0) return [];
+
+    const taskIds = Array.from(new Set(participants.map(p => p.taskId)));
+
+    if (taskIds.length === 0) return [];
+
+    const tasks = await this.taskRepo.createQueryBuilder('task')
+      .where('task.taskId IN (:...taskIds)', { taskIds })
+      .getMany();
+
+    return tasks;
+  }
+
+  async getUnapprovedProfessors(): Promise<User[]> {
+    return this.userRepo.find({
+      where: { isActive: false },
+    });
+  }
+
+  async approveProfessor(userId: number): Promise<{message: string}> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new Error(`Пользователь с id ${userId} не найден`);
+    }
+
+    user.isActive = true;
+    await this.userRepo.save(user);
+
+    return {
+      message: `пользователь ${user.name} ${user.surname}  одобрен`
+    }
+  }
+
+  async updateUser(updateData): Promise<{success: boolean, message: string }> {
+    console.log(updateData)
+    const { id, ...rest } = updateData;
+
+    if (!id) {
+      return {success: false,  message: 'User ID is required' };
+    }
+
+    const user = await this.userRepo.findOne(
+      {where: { id }}
+    );
+
+    if (!user) {
+      return {success: false,  message: `User with ID ${id} not found` };
+    }
+
+    Object.assign(user, rest);
+    await this.userRepo.save(user);
+
+    return { success: true,  message: `User updated` };
+  }
 }
 

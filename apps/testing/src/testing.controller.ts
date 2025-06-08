@@ -41,4 +41,16 @@ export class TestingController {
     }
     return this.testingService.runAndSaveTestResults(data.testId);
   }
+
+  @MessagePattern({cmd: 'run test for student'})
+  async handleStudenRunTest(@Payload() data: { taskId: number, githubLogin: string }) {
+    if (!data || typeof data.taskId !== 'number') {
+      throw new Error('Invalid payload: testId is required and must be a number');
+    }
+
+    if (!data || typeof data.githubLogin !== 'string') {
+      throw new Error('Invalid payload: githubLogin is required and must be a string');
+    }
+    return this.testingService.runStudentTest(data.taskId, data.githubLogin);
+  }
 }

@@ -49,14 +49,36 @@ export class UserController {
     return await this.userService.findByUserId(data.userId);
   }
 
-  @MessagePattern({cmd: 'get all users with available repos'})
-  async getAllUsersWithAvailableRepos(){
+  @MessagePattern({ cmd: 'get all users with available repos' })
+  async getAllUsersWithAvailableRepos() {
     return await this.userService.findAllUsersWithAvailableRepos();
   }
 
-  @MessagePattern({cmd: 'add task to check'})
+  @MessagePattern({ cmd: 'add task to check' })
   async handleToggleHtmlCopyCheck(@Payload() taskId: number): Promise<{ message: string }> {
     const message = await this.userService.toggleHtmlCopyCheck(taskId);
     return { message };
+  }
+
+  @MessagePattern({ cmd: 'get student tasks' })
+  async getStudentTasks(@Payload() githubLogin: string): Promise<any[]> {
+    return await this.userService.getTasksByGithubLogin(githubLogin);
+  }
+
+  @MessagePattern({ cmd: 'get unapproved' })
+  async getUnapprovedProfessors() {
+    return await this.userService.getUnapprovedProfessors();
+  }
+
+  
+
+  @MessagePattern({ cmd: 'approve professor' })
+  async approveProfessor(@Payload() professorId: number): Promise<{message: string}> {
+    return await this.userService.approveProfessor(professorId);
+  }
+
+  @MessagePattern({ cmd: 'update user profile' })
+  async updateUserProfile(updateData: any): Promise<{ success: boolean; message: string }> {
+    return await this.userService.updateUser(updateData);
   }
 }

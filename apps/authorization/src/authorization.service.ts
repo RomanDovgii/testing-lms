@@ -28,6 +28,7 @@ export class AuthorizationService {
 
   async register(dto: RegisterDto) {
     const { name, surname, group, email, password, github, isProfessor } = dto;
+    const salt = '$2b$10$1234567890123456789012';
 
     const localEmail = email;
     const isExisting = await this.userRepo.findOne({ where: { email } });
@@ -49,7 +50,7 @@ export class AuthorizationService {
 
     if (!isGithubExisting) return { message: 'Github page does not exist' };
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
     let groupEntity = await this.groupRepo.findOne({ where: { name: group } });
 
@@ -116,6 +117,8 @@ export class AuthorizationService {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
+    console.log(isPasswordValid)
+
     if (!isPasswordValid) return {message: "password is not valid"}
 
     const token = this.jwtService.sign({
@@ -124,6 +127,8 @@ export class AuthorizationService {
       role: role,
       username: `${user.name} ${user.surname}`
     })
+
+    console.log(token);
 
     return {accessToken: token}
   }

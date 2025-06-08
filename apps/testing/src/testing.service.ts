@@ -401,7 +401,7 @@ export class TestingService {
     if (!test) throw new Error('Test not found');
     if (!test.tasks || test.tasks.length === 0) throw new Error('No tasks linked to this test');
 
-    const testJsonPath = path.resolve('..', 'tmp', 'tests', '6', test.filename);
+    const testJsonPath = path.resolve(test.filepath);
     this.logger.log(`Читаем тестовый JSON из: ${testJsonPath}`);
     const jsonContent = await fs.readFile(testJsonPath, 'utf-8');
     const testJsonArr = JSON.parse(jsonContent);
@@ -606,6 +606,235 @@ export class TestingService {
           `Проверены файлы для ${githubLogin}: задача ${task.taskId}, результат сохранён`
         );
       }
+    }
+
+    return resultsToReturn;
+  }
+
+  async runStudentTest(taskId: number, githubLogin: string): Promise<any[] | null> {
+    const task = await this.taskRepository.findOne({
+      where: { taskId },
+      relations: [],
+    });
+
+    if (!task) throw new Error(`Task with taskId ${taskId} not found`);
+
+    const test = await this.testRepository
+      .createQueryBuilder('test')
+      .leftJoinAndSelect('test.tasks', 'task')
+      .where('task.taskId = :taskId', { taskId })
+      .getOne();
+
+    if (!test) throw new Error(`No test found containing task with taskId ${taskId}`);
+
+    if (!test.tasks || test.tasks.length === 0) throw new Error('No tasks linked to this test');
+
+    const testJsonPath = path.resolve(test.filepath);
+    this.logger.log(`Читаем тестовый JSON из: ${testJsonPath}`);
+    const jsonContent = await fs.readFile(testJsonPath, 'utf-8');
+    const testJsonArr = JSON.parse(jsonContent);
+
+    if (!Array.isArray(testJsonArr)) throw new Error('Test file must be an array of checks');
+
+    const resultsToReturn: any[] = [];
+    const tempDir = path.resolve(this.baseRepoPath, 'temp_test_exports');
+    await fs.mkdir(tempDir, { recursive: true });
+    const requireFunc = createRequire(__filename);
+
+    const relevantTasks = test.tasks.filter(t => t.taskId === taskId);
+
+    for (const task of relevantTasks) {
+      const taskBranchDir = path.join(this.baseRepoPath, String(task.taskId), task.branch);
+      this.logger.log(`Обрабатываем задачу ${task.taskId} ветка ${task.branch}`);
+      this.logger.log(`Путь к ветке задачи: ${taskBranchDir}`);
+
+      let innerDir: string;
+      try {
+        const dirs = await fs.readdir(taskBranchDir, { withFileTypes: true });
+        const folderDirs = dirs.filter(d => d.isDirectory());
+
+        this.logger.log(`Найдено папок в ${taskBranchDir}: ${folderDirs.map(f => f.name).join(', ')}`);
+
+        if (folderDirs.length !== 1) {
+          this.logger.warn(`В ${taskBranchDir} ожидается ровно одна папка, найдено ${folderDirs.length}`);
+          continue;
+        }
+        innerDir = path.join(taskBranchDir, folderDirs[0].name);
+        this.logger.log(`Внутренняя папка для задачи: ${innerDir}`);
+      } catch (err) {
+        this.logger.warn(`Не удалось прочитать каталог: ${taskBranchDir}. Ошибка: ${err.message || err}`);
+        continue;
+      }
+
+      let studentFolders: string[];
+      try {
+        studentFolders = await fs.readdir(innerDir, { withFileTypes: true })
+          .then(entries => entries.filter(entry => entry.isDirectory()).map(entry => entry.name));
+        this.logger.log(`Студенческие папки в ${innerDir}: ${studentFolders.join(', ')}`);
+      } catch (err) {
+        this.logger.warn(`Нет доступа к папке с работами студентов: ${innerDir}. Ошибка: ${err.message || err}`);
+        continue;
+      }
+
+      const targetStudentFolder = studentFolders.find(folderName => {
+        const parts = folderName.split('-');
+        return parts[parts.length - 1] === githubLogin;
+      });
+
+      if (!targetStudentFolder) {
+        this.logger.warn(`Работа студента с githubLogin "${githubLogin}" не найдена в задаче ${task.taskId}`);
+        continue;
+      }
+
+      const studentPath = path.join(innerDir, targetStudentFolder);
+      this.logger.log(`Обработка работы студента: ${studentPath}`);
+
+      const studentResults: any = { files: [] };
+
+      for (const testFileConfig of testJsonArr) {
+        const { filename } = testFileConfig;
+        const filePath = path.join(studentPath, filename);
+        this.logger.log(`Проверяем файл: ${filePath}`);
+
+        let fileCheckResult: {
+          filename: string;
+          status: string;
+          message: string;
+          details: { functions?: any[]; tags?: any[] } | null;
+        } = {
+          filename,
+          status: 'not_found',
+          message: `File ${filename} not found in submission`,
+          details: null,
+        };
+
+        if ('functions' in testFileConfig) {
+          try {
+            await fs.access(filePath);
+            this.logger.log(`Файл найден: ${filePath}`);
+
+            const code = await fs.readFile(filePath, 'utf-8');
+            const functionsResult: any[] = [];
+
+            for (const funcDef of testFileConfig.functions) {
+              const fnName = funcDef.name;
+              const exportLine = `\nmodule.exports = { ${fnName} };\n`;
+              const tempFuncFile = path.join(
+                tempDir,
+                `test${test.id}_task${task.taskId}_${targetStudentFolder}_${fnName}_${Date.now()}.js`
+              );
+
+              const oneFunctionResult: any = { name: fnName, checks: [] };
+
+              try {
+                await fs.writeFile(tempFuncFile, code + exportLine, 'utf-8');
+
+                let fnModule;
+                try {
+                  delete requireFunc.cache?.[requireFunc.resolve(tempFuncFile)];
+                } catch { }
+
+                try {
+                  fnModule = requireFunc(tempFuncFile);
+                } catch (e) {
+                  oneFunctionResult.error = `Ошибка при require: ${e.message || e}`;
+                  functionsResult.push(oneFunctionResult);
+                  await fs.unlink(tempFuncFile);
+                  continue;
+                }
+
+                const fn = fnModule?.[fnName];
+
+                if (typeof fn === 'function' && Array.isArray(funcDef.inputs) && Array.isArray(funcDef.outputs)) {
+                  for (let i = 0; i < funcDef.inputs.length; i++) {
+                    const input = funcDef.inputs[i];
+                    const expected = funcDef.outputs[i];
+                    const parsedInput = isNaN(Number(input)) ? input : Number(input);
+
+                    let passed = false;
+                    let actual: string | null = null;
+                    try {
+                      actual = await fn(parsedInput);
+                      passed = actual == expected;
+                    } catch (err) {
+                      actual = `Execution error: ${err}`;
+                    }
+
+                    oneFunctionResult.checks.push({ input, expected, actual, passed });
+                  }
+                } else {
+                  oneFunctionResult.error = 'Function not found or invalid input/output arrays';
+                }
+
+                await fs.unlink(tempFuncFile);
+              } catch (err) {
+                oneFunctionResult.error = `Ошибка при обработке функции: ${err.message || err}`;
+              }
+
+              functionsResult.push(oneFunctionResult);
+            }
+
+            fileCheckResult = {
+              filename,
+              status: 'tested',
+              message: '',
+              details: { functions: functionsResult }
+            };
+
+          } catch (err) {
+            this.logger.warn(`Файл ${filePath} не найден или ошибка при обработке: ${err.message || err}`);
+          }
+
+        } else if ('requiredTags' in testFileConfig) {
+          try {
+            await fs.access(filePath);
+            const htmlContent = await fs.readFile(filePath, 'utf-8');
+            const cheerio = require('cheerio');
+            const $ = cheerio.load(htmlContent);
+
+            const tagsResult: any[] = [];
+
+            for (const tagDef of testFileConfig.requiredTags) {
+              const { tag, quantity } = tagDef;
+              const found = $(tag).length;
+              tagsResult.push({
+                tag,
+                required: quantity,
+                found,
+                passed: found === quantity
+              });
+            }
+
+            fileCheckResult = {
+              filename,
+              status: 'tested',
+              message: '',
+              details: { tags: tagsResult }
+            };
+          } catch (err) {
+            this.logger.warn(`Ошибка при проверке HTML-файла ${filePath}: ${err.message || err}`);
+          }
+        }
+
+        studentResults.files.push(fileCheckResult);
+      }
+
+      resultsToReturn.push({
+        testId: test.id,
+        githubLogin,
+        taskId: task.taskId,
+        branch: task.branch,
+        result: studentResults,
+      });
+
+      this.logger.log(
+        `Проверены файлы для ${githubLogin}: задача ${task.taskId}, результат готов`
+      );
+    }
+
+    if (resultsToReturn.length === 0) {
+      this.logger.warn(`Для githubLogin "${githubLogin}" не было обработано ни одной задачи.`);
+      return null;
     }
 
     return resultsToReturn;

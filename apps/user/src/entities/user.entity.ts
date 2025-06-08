@@ -44,6 +44,7 @@ export class User {
     @ManyToOne(() => Groups, (group) => group.users, {
         cascade: true,
         eager: true,
+        nullable: true,
     })
     @JoinColumn()
     group: Relation<Groups>;
@@ -51,13 +52,13 @@ export class User {
     @ManyToOne(() => Roles, (role) => role.users, { eager: true })
     role: Relation<Roles>;
 
-    @OneToMany(() => Test, (test) => test.uploadedBy)
+    @OneToMany(() => Test, (test) => test.uploadedBy, {nullable: true})
     tests: Test[];
 
-    @OneToMany(() => Tasks, (tasks) => tasks.owner)
+    @OneToMany(() => Tasks, (tasks) => tasks.owner, {nullable: true})
     tasksOwnership: Tasks[];
 
-    @ManyToOne(() => Tasks, (tasks) => tasks.participants)
+    @ManyToOne(() => Tasks, (tasks) => tasks.participants, {nullable: true})
     taskParticipation: Relation<Tasks>;
 }
 

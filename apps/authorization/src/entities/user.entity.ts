@@ -1,8 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, Relation } from "typeorm";
-import { Groups } from "./group.entity";
-import { Roles } from "./roles.entity";
-import { Test } from "./test.entity";
-import { Tasks } from "./tasks.entity";
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    ManyToOne,
+    OneToMany,
+    JoinColumn,
+    Relation,
+} from 'typeorm';
+import { Groups } from './group.entity'; // Используем groups.entity
+import { Roles } from './roles.entity';
+import { Tasks } from './tasks.entity';
+import { Test } from './test.entity'; // Добавлен из первой версии
 
 @Entity('user')
 export class User {
@@ -36,6 +44,7 @@ export class User {
     @ManyToOne(() => Groups, (group) => group.users, {
         cascade: true,
         eager: true,
+        nullable: true,
     })
     @JoinColumn()
     group: Relation<Groups>;

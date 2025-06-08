@@ -45,4 +45,3 @@ export class Tasks {
     @OneToMany(() => HtmlCopyMatch, (htmlCopyMatch) => htmlCopyMatch.task)
     htmlCopyMatches: HtmlCopyMatch[];
 }
-
