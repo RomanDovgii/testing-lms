@@ -52,6 +52,7 @@ export class GitSyncService {
             try {
                 const taskPath = `${this.basePath}/${task.taskId}/${task.branch}`;
                 this.cloneOrUpdateRepos(task.taskId, taskPath, task.branch);
+                console.log('cloning repositories ended')
                 await this.analyzeRepos(task, taskPath, users);
             } catch (err) {
                 this.logger.error(`Error processing task ${task.taskId}`, err);
@@ -163,7 +164,7 @@ export class GitSyncService {
                 return;
             }
 
-            const limit = pLimit(2);
+            const limit = pLimit(1);
             const tasks: Promise<void>[] = [];
 
             for (const taskDir of taskDirs) {
@@ -549,11 +550,12 @@ export class GitSyncService {
     }
 
 
-    onModuleInit() {
+    async onModuleInit() {
         this.logger.log('GitSyncService initialized — запускаем синхронизацию сразу');
-        this.handleCron();
-        this.detectAnomalies();
-        this.handleHtmlComparisonCron();
-        this.collectPaticipatingUsers();
+        await this.handleCron();
+        this.logger.log('Начинаем поиск аномалий');
+        await this.detectAnomalies();
+        await this.handleHtmlComparisonCron();
+        await this.collectPaticipatingUsers();
     }
 }
