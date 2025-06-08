@@ -49,6 +49,14 @@ import { RolesGuard } from './roles.guard';
           host: '127.0.0.1',
           port: 5004,
         }
+      },
+      {
+        name: 'CRON_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: '127.0.0.1',
+          port: 5005,
+        }
       }
     ]),
   ],

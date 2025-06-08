@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
-import { TestingController } from './testing.controller';
-import { TestingService } from './testing.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { GitSyncService } from './gitsync.service';
 import { User } from './entities/user.entity';
 import { Tasks } from './entities/tasks.entity';
 import { RepoStat } from './entities/repoStat.entity';
@@ -15,6 +14,8 @@ import { Roles } from './entities/roles.entity';
 import { ParticipatingGithubUser } from './entities/participants.entity';
 import { TestResult } from './entities/test-result.entity';
 import { Test } from './entities/test.entity';
+import { CronService } from './cron.service';
+import { CronController } from './cron.controller';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { Test } from './entities/test.entity';
     TypeOrmModule.forFeature([User, Tasks, RepoStat, Anomaly, HtmlCopyCheck, HtmlCopyMatch, ValidationResult, Groups, Roles, ParticipatingGithubUser, TestResult, ValidationResult, Test]),
     ScheduleModule.forRoot(),
   ],
-  controllers: [TestingController],
-  providers: [TestingService],
+  controllers: [CronController],
+  providers: [CronService, GitSyncService],
 })
-export class TestingModule {}
+export class CronModule {}

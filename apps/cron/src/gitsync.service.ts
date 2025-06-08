@@ -108,6 +108,36 @@ export class GitSyncService {
     }
 
     private async cloneOrUpdateRepos(taskId: number, targetDir: string, branch: string = 'main') {
+        const execSyncWithRetry = (
+            cmd: string,
+            options: { cwd?: string; stdio?: any; encoding?: BufferEncoding } = {},
+            retries = 3,
+            delayMs = 1000,
+        ): string => {
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    const result: Buffer | string = execSync(cmd, options);
+
+                    if (typeof result === 'string') {
+                        return result;
+                    }
+
+                    if (Buffer.isBuffer(result)) {
+                        return result.toString('utf8');
+                    }
+
+                    return String(result);
+                } catch (err: any) {
+                    if (attempt === retries) {
+                        throw err;
+                    }
+                    this.logger.warn(`Попытка ${attempt} команды "${cmd}" не удалась. Повтор через ${delayMs} мс`);
+                    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+                }
+            }
+            throw new Error('Unexpected error in execSyncWithRetry');
+        };
+
         try {
             if (!fs.existsSync(targetDir)) {
                 fs.mkdirSync(targetDir, { recursive: true });
@@ -116,7 +146,7 @@ export class GitSyncService {
             this.logger.log(`Cloning repos for assignment ${taskId} into ${targetDir} (branch: ${branch})`);
 
             try {
-                execSync(`gh classroom clone student-repos --assignment-id ${taskId}`, {
+                execSyncWithRetry(`gh classroom clone student-repos --assignment-id ${taskId}`, {
                     cwd: targetDir,
                     stdio: 'inherit',
                 });
@@ -133,7 +163,7 @@ export class GitSyncService {
                 return;
             }
 
-            const limit = pLimit(100);
+            const limit = pLimit(2);
             const tasks: Promise<void>[] = [];
 
             for (const taskDir of taskDirs) {
@@ -157,22 +187,22 @@ export class GitSyncService {
 
                     tasks.push(limit(async () => {
                         try {
-                            const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+                            const currentBranch = execSyncWithRetry('git rev-parse --abbrev-ref HEAD', {
                                 cwd: repoPath,
                                 encoding: 'utf8',
                             }).trim();
 
                             if (currentBranch === branch) {
                                 this.logger.log(`${repoPath} уже на ветке ${branch}, переключение не требуется`);
-                                execSync(`git pull origin ${branch}`, { cwd: repoPath, stdio: 'inherit' });
+                                execSyncWithRetry(`git pull origin ${branch}`, { cwd: repoPath, stdio: 'inherit' });
                                 return;
                             }
 
                             this.logger.log(`Switching ${repoPath} to branch "${branch}"`);
 
-                            execSync(`git fetch`, { cwd: repoPath, stdio: 'inherit' });
-                            execSync(`git checkout ${branch}`, { cwd: repoPath, stdio: 'inherit' });
-                            execSync(`git pull origin ${branch}`, { cwd: repoPath, stdio: 'inherit' });
+                            execSyncWithRetry(`git fetch`, { cwd: repoPath, stdio: 'inherit' });
+                            execSyncWithRetry(`git checkout ${branch}`, { cwd: repoPath, stdio: 'inherit' });
+                            execSyncWithRetry(`git pull origin ${branch}`, { cwd: repoPath, stdio: 'inherit' });
 
                         } catch (e: any) {
                             this.logger.warn(`Ошибка при переключении ветки в ${repoPath}: ${e.message}`);
@@ -187,7 +217,6 @@ export class GitSyncService {
             this.logger.error('Failed to clone or update repos', err.message ?? err);
         }
     }
-
 
 
     private async analyzeRepos(task: Tasks, dir: string, users: User[]) {
@@ -285,8 +314,7 @@ export class GitSyncService {
     @Cron('40 */6 * * *')
     async handleHtmlComparisonCron() {
         const excludedFiles = ['normalize.css', 'reset.css', 'README.md'];
-        const concurrencyLimit = 4;
-        const limit = pLimit(concurrencyLimit);
+        const limit = pLimit(2);
 
         this.logger.log('Starting HTML/CSS/JS copy comparison cron job...');
 
@@ -522,19 +550,10 @@ export class GitSyncService {
 
 
     onModuleInit() {
-        // this.logger.log('GitSyncService initialized — запускаем синхронизацию сразу');
-
-        // this.safeRun(this.handleCron.bind(this), 'Cron error');
-        // this.safeRun(this.detectAnomalies.bind(this), 'Anomaly detection error');
-        // this.safeRun(this.handleHtmlComparisonCron.bind(this), 'HTML comparison error');
-        // this.safeRun(this.collectPaticipatingUsers.bind(this), 'User collection error');
-    }
-
-    private async safeRun(fn: () => Promise<void>, errorMsg: string) {
-        try {
-            await fn();
-        } catch (err) {
-            this.logger.error(`${errorMsg}:`, err);
-        }
+        this.logger.log('GitSyncService initialized — запускаем синхронизацию сразу');
+        this.handleCron();
+        this.detectAnomalies();
+        this.handleHtmlComparisonCron();
+        this.collectPaticipatingUsers();
     }
 }

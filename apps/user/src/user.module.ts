@@ -18,7 +18,7 @@ import { ParticipatingGithubUser } from './entities/participants.entity';
   imports: [
     TypeOrmModule.forRoot({
           type: 'postgres',
-          host: '192.168.1.3',
+          host: 'localhost',
           port: 5432,
           username: 'admin',
           password: '89037839344Rd',

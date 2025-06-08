@@ -177,7 +177,7 @@ export class GatewayController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('testing/run/:id')
-  @Roles('преподаватель', "студент")
+  @Roles('преподаватель')
   async runTest(@Param('id', ParseIntPipe) testId: number) {
     return this.testingClient.send({ cmd: 'run test' }, { testId });
   }
@@ -189,4 +189,21 @@ export class GatewayController {
     const taskId = parseInt(id);
     return this.userClient.send({cmd: 'add task to check'}, taskId);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('/user/get-tasks/:id')
+  @Roles('студент')
+  async getStudentTasks(@Param('id') id: string) {
+    const taskId = parseInt(id);
+    return this.userClient.send({cmd: 'get student tasks'}, taskId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('testing/student-run/:id/:githubLogin')
+  @Roles('студент')
+  async runStudentTest(@Param('id', ParseIntPipe) testId: number, @Param('githubLogin') githubLogin: string) {
+    return this.testingClient.send({ cmd: 'run test for student' }, { testId, githubLogin });
+  }
+
+  
 }
