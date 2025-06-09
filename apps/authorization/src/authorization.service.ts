@@ -115,6 +115,10 @@ export class AuthorizationService {
       return {message: "user does not exist"}
     }
 
+    if (!user.isActive) {
+      return {message: "user is not active"}
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     console.log(isPasswordValid)
