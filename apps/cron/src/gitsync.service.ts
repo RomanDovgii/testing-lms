@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execSync } from 'child_process';
 import { Tasks } from './entities/tasks.entity';
 import { User } from './entities/user.entity';
@@ -29,7 +30,10 @@ type commits = commit[]
 @Injectable()
 export class GitSyncService {
     private readonly logger = new Logger(GitSyncService.name);
-    private readonly basePath = '../tmp/repos';
+    private isWindows = process.platform === 'win32';
+    private readonly basePath = this.isWindows
+        ? path.join('C:\\', 'tmp', 'repos')
+        : path.resolve('/', 'tmp', 'repos');
 
     constructor(
         @InjectRepository(Tasks) private readonly taskRepo: Repository<Tasks>,

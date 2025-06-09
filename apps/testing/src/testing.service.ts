@@ -38,7 +38,10 @@ export class TestingService {
   ) { }
 
   private readonly logger = new Logger(TestingService.name);
-  private baseRepoPath = path.resolve('../tmp/repos');
+  private isWindows = process.platform === 'win32';
+  private baseRepoPath = this.isWindows
+    ? path.join('C:\\', 'tmp', 'repos')
+    : path.resolve('/', 'tmp', 'repos');
 
   async addTask(dto: TaskDto): Promise<Tasks> {
     const task = this.taskRepository.create({
