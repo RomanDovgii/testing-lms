@@ -426,14 +426,11 @@ export class TestingService {
         const dirs = await fs.readdir(taskBranchDir, { withFileTypes: true });
         const folderDirs = dirs.filter(d => d.isDirectory());
 
-        this.logger.log(`Найдено папок в ${taskBranchDir}: ${folderDirs.map(f => f.name).join(', ')}`);
-
         if (folderDirs.length !== 1) {
           this.logger.warn(`В ${taskBranchDir} ожидается ровно одна папка, найдено ${folderDirs.length}`);
           continue;
         }
         innerDir = path.join(taskBranchDir, folderDirs[0].name);
-        this.logger.log(`Внутренняя папка для задачи: ${innerDir}`);
       } catch (err) {
         this.logger.warn(`Не удалось прочитать каталог: ${taskBranchDir}. Ошибка: ${err.message || err}`);
         continue;
@@ -443,21 +440,15 @@ export class TestingService {
       try {
         studentFolders = await fs.readdir(innerDir, { withFileTypes: true })
           .then(entries => entries.filter(entry => entry.isDirectory()).map(entry => entry.name));
-        this.logger.log(`Студенческие папки в ${innerDir}: ${studentFolders.join(', ')}`);
       } catch (err) {
         this.logger.warn(`Нет доступа к папке с работами студентов: ${innerDir}. Ошибка: ${err.message || err}`);
         continue;
       }
 
-      if (!studentFolders.length) {
-        this.logger.warn(`Нет поддиректорий (работ студентов) для задачи ${task.taskId} в ветке ${task.branch}`);
-        continue;
-      }
+      if (!studentFolders.length) continue;
 
       for (const studentFolder of studentFolders) {
         const studentPath = path.join(innerDir, studentFolder);
-        this.logger.log(`Обработка работы студента: ${studentPath}`);
-
         const parts = studentFolder.split('-');
         const githubLogin = parts[parts.length - 1];
         const studentResults: any = { files: [] };
@@ -465,7 +456,6 @@ export class TestingService {
         for (const testFileConfig of testJsonArr) {
           const { filename } = testFileConfig;
           const filePath = path.join(studentPath, filename);
-          this.logger.log(`Проверяем файл: ${filePath}`);
 
           let fileCheckResult: {
             filename: string;
@@ -482,8 +472,6 @@ export class TestingService {
           if ('functions' in testFileConfig) {
             try {
               await fs.access(filePath);
-              this.logger.log(`Файл найден: ${filePath}`);
-
               const code = await fs.readFile(filePath, 'utf-8');
               const functionsResult: any[] = [];
 
@@ -515,23 +503,34 @@ export class TestingService {
                   }
 
                   const fn = fnModule?.[fnName];
+                  const inputs = funcDef.inputs;
+                  const outputs = funcDef.outputs;
 
-                  if (typeof fn === 'function' && Array.isArray(funcDef.inputs) && Array.isArray(funcDef.outputs)) {
-                    for (let i = 0; i < funcDef.inputs.length; i++) {
-                      const input = funcDef.inputs[i];
-                      const expected = funcDef.outputs[i];
-                      const parsedInput = isNaN(Number(input)) ? input : Number(input);
+                  if (typeof fn === 'function' && Array.isArray(inputs) && Array.isArray(outputs)) {
+                    const isMultipleArgs = Array.isArray(inputs[0]);
 
+                    for (let i = 0; i < inputs.length; i++) {
+                      const rawInput = inputs[i];
+                      const expected = outputs[i];
+
+                      const args = isMultipleArgs ? rawInput : [rawInput];
+
+                      let actual: any = null;
                       let passed = false;
-                      let actual: string | null = null;
+
                       try {
-                        actual = await fn(parsedInput);
-                        passed = (actual == expected);
+                        actual = await fn(...args);
+                        passed = actual == expected;
                       } catch (err) {
                         actual = `Execution error: ${err}`;
                       }
 
-                      oneFunctionResult.checks.push({ input, expected, actual, passed });
+                      oneFunctionResult.checks.push({
+                        input: rawInput,
+                        expected,
+                        actual,
+                        passed,
+                      });
                     }
                   } else {
                     oneFunctionResult.error = 'Function not found or invalid input/output arrays';
@@ -551,12 +550,12 @@ export class TestingService {
                 message: '',
                 details: { functions: functionsResult }
               };
-
             } catch (err) {
               this.logger.warn(`Файл ${filePath} не найден или ошибка при обработке: ${err.message || err}`);
             }
+          }
 
-          } else if ('requiredTags' in testFileConfig) {
+          if ('requiredTags' in testFileConfig) {
             try {
               await fs.access(filePath);
               const htmlContent = await fs.readFile(filePath, 'utf-8');
@@ -614,10 +613,10 @@ export class TestingService {
     return resultsToReturn;
   }
 
+
   async runStudentTest(taskId: number, githubLogin: string): Promise<any[] | null> {
     const task = await this.taskRepository.findOne({
       where: { taskId },
-      relations: [],
     });
 
     if (!task) throw new Error(`Task with taskId ${taskId} not found`);
@@ -629,7 +628,6 @@ export class TestingService {
       .getOne();
 
     if (!test) throw new Error(`No test found containing task with taskId ${taskId}`);
-
     if (!test.tasks || test.tasks.length === 0) throw new Error('No tasks linked to this test');
 
     const testJsonPath = path.resolve(test.filepath);
@@ -842,5 +840,6 @@ export class TestingService {
 
     return resultsToReturn;
   }
+
 
 }

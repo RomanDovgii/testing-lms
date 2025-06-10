@@ -12,6 +12,9 @@ export class Anomaly {
   @Column()
   commitDate: Date;
 
+  @Column({nullable: true})
+  commitHash: string;
+
   @ManyToOne(() => Tasks)
   task: Tasks;
 }

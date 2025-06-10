@@ -13,4 +13,7 @@ export class ParticipatingGithubUser {
 
   @Column()
   githubLogin: string;
+  
+  @Column({nullable: true})
+    taskBranch: string;
 }

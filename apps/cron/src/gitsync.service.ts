@@ -75,7 +75,7 @@ export class GitSyncService {
             .select('DISTINCT stat.githubLogin', 'githubLogin')
             .getRawMany();
 
-        for (const { githubLogin } of users) {
+        for (const { githubLogin, commitHash } of users) {
             const stats = await this.statRepo.find({
                 where: { githubLogin },
                 relations: ['task'],
@@ -91,6 +91,7 @@ export class GitSyncService {
 
             for (const s of stats) {
                 const activity = s.additions + s.deletions;
+                console.log(s.commitHash)
                 if (activity > threshold) {
                     const exists = await this.anomalyRepo.findOne({
                         where: { githubLogin: s.githubLogin, commitDate: s.commitDate },
@@ -101,6 +102,7 @@ export class GitSyncService {
                             githubLogin: s.githubLogin,
                             commitDate: s.commitDate,
                             task: s.task,
+                            commitHash: s.commitHash
                         });
                         await this.anomalyRepo.save(anomaly);
                         this.logger.warn(`Аномалия для ${s.githubLogin} по заданию "${s.task.name}" на ${s.commitDate}`);
@@ -555,9 +557,9 @@ export class GitSyncService {
 
 
     async onModuleInit() {
-        this.logger.log('GitSyncService initialized — запускаем синхронизацию сразу');
-        await this.handleCron();
-        this.logger.log('Начинаем поиск аномалий');
+        // this.logger.log('GitSyncService initialized — запускаем синхронизацию сразу');
+        // await this.handleCron();
+        // this.logger.log('Начинаем поиск аномалий');
         await this.detectAnomalies();
         await this.handleHtmlComparisonCron();
         await this.collectPaticipatingUsers();
