@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Roman Dovgii
-// This file is part of ProjectName.
+// This file is part of LMS with github classroom integration.
 //
-// ProjectName is free software: you can redistribute it and/or modify
+// LMS with github classroom integration is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
