@@ -19,6 +19,9 @@ import { UserService } from './user.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadTestDto } from './dto/testUpload.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { DeleteTestDto } from './dto/delete-test.dto';
+import { UpdateTestDto } from './dto/update-test.dto';
 
 @Controller()
 export class UserController {
@@ -86,15 +89,37 @@ export class UserController {
     return await this.userService.getUnapprovedProfessors();
   }
 
-  
+
 
   @MessagePattern({ cmd: 'approve professor' })
-  async approveProfessor(@Payload() professorId: number): Promise<{message: string}> {
+  async approveProfessor(@Payload() professorId: number): Promise<{ message: string }> {
     return await this.userService.approveProfessor(professorId);
   }
 
   @MessagePattern({ cmd: 'update user profile' })
   async updateUserProfile(updateData: any) {
     return await this.userService.updateUser(updateData);
+  }
+
+  @MessagePattern({ cmd: 'delete task' })
+  async deleteTask(@Payload() payload: { taskId: number }): Promise<{ success: boolean; message: string }> {
+    const { taskId } = payload;
+    const message = await this.userService.deleteTask(taskId);
+    return message;
+  }
+
+  @MessagePattern({ cmd: 'update task' })
+  async updateTask(@Payload() dto: UpdateTaskDto) {
+    return this.userService.updateTask(dto);
+  }
+
+  @MessagePattern({ cmd: 'delete test' })
+  async deleteTest(@Payload() dto: DeleteTestDto) {
+    return this.userService.deleteTest(dto.testId, dto.userId);
+  }
+
+  @MessagePattern({ cmd: 'update test' })
+  async updateTest(@Payload() dto: UpdateTestDto) {
+    return this.userService.updateTest(dto);
   }
 }

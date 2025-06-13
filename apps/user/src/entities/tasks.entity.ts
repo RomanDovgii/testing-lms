@@ -45,7 +45,7 @@ export class Tasks {
   @Column({nullable: true})
   taskId: number;
 
-  @ManyToOne(() => User, (user) => user.tasksOwnership, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.tasksOwnership)
   owner: User;
 
   @OneToMany(() => User, (user) => user.taskParticipation)

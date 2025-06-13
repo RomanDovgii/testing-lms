@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { Body, Controller, Get, Inject, Param, ParseIntPipe, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, ParseIntPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -27,6 +27,9 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { firstValueFrom } from 'rxjs';
+import { DeleteTestDto } from './dto/delete-test.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTestDto } from './dto/update-test.dto';
 
 @Controller()
 export class GatewayController {
@@ -240,5 +243,33 @@ export class GatewayController {
   @Roles('администратор', 'преподаватель', 'студент')
   async updateProfile(@Body() updateUserDto: any) {
     return this.userClient.send({ cmd: 'update user profile' }, updateUserDto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Delete('/user/task/delete')
+  @Roles('преподаватель')
+  async deleteTask(@Body() body: {taskId: number}) {
+    return this.userClient.send({ cmd: 'delete task' }, body);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('user/task/update')
+  @Roles('преподаватель')
+  async updateTask(@Body() dto: UpdateTaskDto) {
+    return this.userClient.send({ cmd: 'update task' }, dto);
+  }
+  
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Delete('user/test/delete')
+  @Roles('преподаватель')
+  async deleteTest(@Body() dto: DeleteTestDto) {
+    return this.userClient.send({ cmd: 'delete test' }, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch('user/test/update')
+  @Roles('преподаватель')
+  async updateTest(@Body() dto: UpdateTestDto) {
+    return this.userClient.send({ cmd: 'update test' }, dto);
   }
 }
